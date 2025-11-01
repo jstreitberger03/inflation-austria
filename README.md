@@ -99,5 +99,5 @@ This project is open source and available for educational and analytical purpose
 Contributions are welcome! Feel free to open issues or submit pull requests.
 
 ## Author
-
+Julian Streitberger
 Created for analyzing inflation trends in Austria compared to the Euro zone.

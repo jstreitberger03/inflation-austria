@@ -1,0 +1,117 @@
+"""
+Module for analyzing inflation data and comparing Austria with Euro zone.
+"""
+import pandas as pd
+
+
+def calculate_statistics(df):
+    """
+    Calculate statistical measures for inflation data.
+    
+    Args:
+        df (pd.DataFrame): Processed inflation data
+        
+    Returns:
+        dict: Dictionary containing statistics for each region
+    """
+    stats = {}
+    
+    for geo in df['geo'].unique():
+        region_data = df[df['geo'] == geo]
+        country_name = region_data['country'].iloc[0]
+        
+        stats[country_name] = {
+            'mean': region_data['inflation_rate'].mean(),
+            'median': region_data['inflation_rate'].median(),
+            'min': region_data['inflation_rate'].min(),
+            'max': region_data['inflation_rate'].max(),
+            'std': region_data['inflation_rate'].std(),
+            'latest': region_data.sort_values('year', ascending=False)['inflation_rate'].iloc[0] if len(region_data) > 0 else None,
+            'latest_year': region_data.sort_values('year', ascending=False)['year'].iloc[0] if len(region_data) > 0 else None
+        }
+    
+    return stats
+
+
+def compare_regions(df):
+    """
+    Compare inflation between Austria and Euro zone.
+    
+    Args:
+        df (pd.DataFrame): Processed inflation data
+        
+    Returns:
+        pd.DataFrame: Year-by-year comparison with differences
+    """
+    # Pivot to have Austria and Euro zone as columns
+    comparison = df.pivot(index='year', columns='country', values='inflation_rate')
+    
+    if 'Austria' in comparison.columns and 'Euro zone' in comparison.columns:
+        comparison['Difference (AT - EA)'] = comparison['Austria'] - comparison['Euro zone']
+        comparison['Higher in Austria'] = comparison['Difference (AT - EA)'] > 0
+    
+    return comparison
+
+
+def calculate_cumulative_inflation(df):
+    """
+    Calculate cumulative inflation over the period.
+    
+    Args:
+        df (pd.DataFrame): Processed inflation data
+        
+    Returns:
+        dict: Cumulative inflation for each region
+    """
+    cumulative = {}
+    
+    for geo in df['geo'].unique():
+        region_data = df[df['geo'] == geo].sort_values('year')
+        country_name = region_data['country'].iloc[0]
+        
+        # Calculate cumulative inflation using compound formula
+        # (1 + r1) * (1 + r2) * ... - 1
+        rates = region_data['inflation_rate'].values / 100  # Convert to decimal
+        cumulative_rate = 1
+        for rate in rates:
+            cumulative_rate *= (1 + rate)
+        
+        cumulative[country_name] = (cumulative_rate - 1) * 100  # Convert back to percentage
+    
+    return cumulative
+
+
+def identify_trends(df):
+    """
+    Identify trends and periods of high/low inflation.
+    
+    Args:
+        df (pd.DataFrame): Processed inflation data
+        
+    Returns:
+        dict: Dictionary containing trend information
+    """
+    trends = {}
+    
+    for geo in df['geo'].unique():
+        region_data = df[df['geo'] == geo].sort_values('year')
+        country_name = region_data['country'].iloc[0]
+        
+        # Find years with highest and lowest inflation
+        max_idx = region_data['inflation_rate'].idxmax()
+        min_idx = region_data['inflation_rate'].idxmin()
+        
+        max_year = region_data.loc[max_idx, 'year']
+        max_rate = region_data.loc[max_idx, 'inflation_rate']
+        
+        min_year = region_data.loc[min_idx, 'year']
+        min_rate = region_data.loc[min_idx, 'inflation_rate']
+        
+        trends[country_name] = {
+            'highest_year': max_year,
+            'highest_rate': max_rate,
+            'lowest_year': min_year,
+            'lowest_rate': min_rate
+        }
+    
+    return trends

@@ -53,34 +53,6 @@ def compare_regions(df):
     return comparison
 
 
-def calculate_cumulative_inflation(df):
-    """
-    Calculate cumulative inflation over the period.
-    
-    Args:
-        df (pd.DataFrame): Processed inflation data
-        
-    Returns:
-        dict: Cumulative inflation for each region
-    """
-    cumulative = {}
-    
-    for geo in df['geo'].unique():
-        region_data = df[df['geo'] == geo].sort_values('year')
-        country_name = region_data['country'].iloc[0]
-        
-        # Calculate cumulative inflation using compound formula
-        # (1 + r1) * (1 + r2) * ... - 1
-        rates = region_data['inflation_rate'].values / 100  # Convert to decimal
-        cumulative_rate = 1
-        for rate in rates:
-            cumulative_rate *= (1 + rate)
-        
-        cumulative[country_name] = (cumulative_rate - 1) * 100  # Convert back to percentage
-    
-    return cumulative
-
-
 def identify_trends(df):
     """
     Identify trends and periods of high/low inflation.

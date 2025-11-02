@@ -26,8 +26,8 @@ def calculate_statistics(df):
             'min': region_data['inflation_rate'].min(),
             'max': region_data['inflation_rate'].max(),
             'std': region_data['inflation_rate'].std(),
-            'latest': region_data.sort_values('year', ascending=False)['inflation_rate'].iloc[0] if len(region_data) > 0 else None,
-            'latest_year': region_data.sort_values('year', ascending=False)['year'].iloc[0] if len(region_data) > 0 else None
+            'latest': region_data.sort_values('date', ascending=False)['inflation_rate'].iloc[0] if len(region_data) > 0 else None,
+            'latest_date': region_data.sort_values('date', ascending=False)['date'].iloc[0] if len(region_data) > 0 else None
         }
     
     return stats
@@ -41,13 +41,13 @@ def compare_regions(df):
         df (pd.DataFrame): Processed inflation data
         
     Returns:
-        pd.DataFrame: Year-by-year comparison with differences
+        pd.DataFrame: Month-by-month comparison with differences
     """
     # Pivot to have Austria and Euro zone as columns
-    comparison = df.pivot(index='year', columns='country', values='inflation_rate')
+    comparison = df.pivot(index='date', columns='country', values='inflation_rate')
     
-    if 'Austria' in comparison.columns and 'Euro zone' in comparison.columns:
-        comparison['Difference (AT - EA)'] = comparison['Austria'] - comparison['Euro zone']
+    if 'Österreich' in comparison.columns and 'Eurozone' in comparison.columns:
+        comparison['Difference (AT - EA)'] = comparison['Österreich'] - comparison['Eurozone']
         comparison['Higher in Austria'] = comparison['Difference (AT - EA)'] > 0
     
     return comparison
@@ -94,23 +94,23 @@ def identify_trends(df):
     trends = {}
     
     for geo in df['geo'].unique():
-        region_data = df[df['geo'] == geo].sort_values('year')
+        region_data = df[df['geo'] == geo].sort_values('date')
         country_name = region_data['country'].iloc[0]
         
-        # Find years with highest and lowest inflation
+        # Find dates with highest and lowest inflation
         max_idx = region_data['inflation_rate'].idxmax()
         min_idx = region_data['inflation_rate'].idxmin()
         
-        max_year = region_data.loc[max_idx, 'year']
+        max_date = region_data.loc[max_idx, 'date']
         max_rate = region_data.loc[max_idx, 'inflation_rate']
         
-        min_year = region_data.loc[min_idx, 'year']
+        min_date = region_data.loc[min_idx, 'date']
         min_rate = region_data.loc[min_idx, 'inflation_rate']
         
         trends[country_name] = {
-            'highest_year': max_year,
+            'highest_date': max_date,
             'highest_rate': max_rate,
-            'lowest_year': min_year,
+            'lowest_date': min_date,
             'lowest_rate': min_rate
         }
     

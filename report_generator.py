@@ -4,15 +4,14 @@ Module for generating text reports from inflation analysis.
 from datetime import datetime
 
 
-def generate_text_report(df, stats, comparison, cumulative, trends, output_dir='output'):
+def generate_text_report(df, stats, comparison, trends, output_dir='output'):
     """
     Generate a comprehensive text report of the inflation analysis.
     
     Args:
         df (pd.DataFrame): Processed inflation data
         stats (dict): Statistics dictionary
-        comparison (pd.DataFrame): Year-by-year comparison
-        cumulative (dict): Cumulative inflation data
+        comparison (pd.DataFrame): Month-by-month comparison
         trends (dict): Trends and extremes data
         output_dir (str): Directory to save the report
         
@@ -40,8 +39,8 @@ def generate_text_report(df, stats, comparison, cumulative, trends, output_dir='
     # Latest inflation rates
     for country in stats.keys():
         latest_rate = stats[country]['latest']
-        latest_year = stats[country]['latest_year']
-        report_lines.append(f"{country} - Latest Inflation Rate ({latest_year}): {latest_rate:.2f}%")
+        latest_date = stats[country]['latest_date']
+        report_lines.append(f"{country} - Latest Inflation Rate ({latest_date:%B %Y}): {latest_rate:.2f}%")
     report_lines.append("")
     
     # Key Statistics
@@ -55,7 +54,6 @@ def generate_text_report(df, stats, comparison, cumulative, trends, output_dir='
         report_lines.append(f"  Minimum Inflation:    {stats[country]['min']:.2f}%")
         report_lines.append(f"  Maximum Inflation:    {stats[country]['max']:.2f}%")
         report_lines.append(f"  Standard Deviation:   {stats[country]['std']:.2f}%")
-        report_lines.append(f"  Cumulative Inflation: {cumulative[country]:.2f}%")
     
     report_lines.append("")
     
@@ -65,26 +63,26 @@ def generate_text_report(df, stats, comparison, cumulative, trends, output_dir='
     
     for country in trends.keys():
         report_lines.append(f"\n{country}:")
-        report_lines.append(f"  Highest Inflation: {trends[country]['highest_rate']:.2f}% in {trends[country]['highest_year']}")
-        report_lines.append(f"  Lowest Inflation:  {trends[country]['lowest_rate']:.2f}% in {trends[country]['lowest_year']}")
+    report_lines.append(f"  Highest Inflation: {trends[country]['highest_rate']:.2f}% in {trends[country]['highest_date']:%B %Y}")
+    report_lines.append(f"  Lowest Inflation: {trends[country]['lowest_rate']:.2f}% in {trends[country]['lowest_date']:%B %Y}")
     
     report_lines.append("")
     
     # Year-by-Year Comparison
     report_lines.append("YEAR-BY-YEAR COMPARISON")
     report_lines.append("-" * 80)
-    report_lines.append(f"{'Year':<10} {'Austria':<15} {'Euro zone':<15} {'Difference':<15} {'Higher in AT':<15}")
+    report_lines.append(f"{'Year':<10} {'Österreich':<15} {'Deutschland':<15} {'Eurozone':<15} {'Difference':<15}")
     report_lines.append("-" * 80)
     
     for year in comparison.index:
-        austria_val = comparison.loc[year, 'Austria']
-        euro_val = comparison.loc[year, 'Euro zone']
+        austria_val = comparison.loc[year, 'Österreich'] if 'Österreich' in comparison.columns else 0
+        germany_val = comparison.loc[year, 'Deutschland'] if 'Deutschland' in comparison.columns else 0
+        euro_val = comparison.loc[year, 'Eurozone'] if 'Eurozone' in comparison.columns else 0
         diff_val = comparison.loc[year, 'Difference (AT - EA)'] if 'Difference (AT - EA)' in comparison.columns else 0
-        higher = comparison.loc[year, 'Higher in Austria'] if 'Higher in Austria' in comparison.columns else False
         
         report_lines.append(
-            f"{year:<10} {austria_val:>8.2f}%      {euro_val:>8.2f}%      "
-            f"{diff_val:>8.2f}%      {'Yes' if higher else 'No':<15}"
+            f"{year:<10} {austria_val:>8.2f}%      {germany_val:>8.2f}%      "
+            f"{euro_val:>8.2f}%      {diff_val:>8.2f}%"
         )
     
     report_lines.append("")
@@ -99,7 +97,7 @@ def generate_text_report(df, stats, comparison, cumulative, trends, output_dir='
         total_years = len(comparison)
         
         report_lines.append(f"Average Difference: {avg_diff:.2f} percentage points")
-        report_lines.append(f"Austria had higher inflation in {years_higher} out of {total_years} years")
+        report_lines.append(f"Austria had higher inflation in {years_higher} out of {total_years} months.")
         report_lines.append(f"That's {(years_higher/total_years*100):.1f}% of the time")
         report_lines.append("")
         
@@ -125,13 +123,12 @@ def generate_text_report(df, stats, comparison, cumulative, trends, output_dir='
     return output_path
 
 
-def print_summary(stats, cumulative, trends):
+def print_summary(stats, trends):
     """
     Print a brief summary to console.
     
     Args:
         stats (dict): Statistics dictionary
-        cumulative (dict): Cumulative inflation data
         trends (dict): Trends data
     """
     print("\n" + "=" * 80)
@@ -140,9 +137,8 @@ def print_summary(stats, cumulative, trends):
     
     for country in stats.keys():
         print(f"\n{country}:")
-        print(f"  Latest: {stats[country]['latest']:.2f}% ({stats[country]['latest_year']})")
+        print(f"  Latest: {stats[country]['latest']:.2f}% ({stats[country]['latest_date']:%B %Y})")
         print(f"  Average: {stats[country]['mean']:.2f}%")
-        print(f"  Cumulative: {cumulative[country]:.2f}%")
-        print(f"  Peak: {trends[country]['highest_rate']:.2f}% ({trends[country]['highest_year']})")
+        print(f"  Peak: {trends[country]['highest_rate']:.2f}% ({trends[country]['highest_date']:%B %Y})")
     
     print("\n" + "=" * 80)

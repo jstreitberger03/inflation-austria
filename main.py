@@ -10,15 +10,13 @@ from data_fetcher import fetch_inflation_data, process_inflation_data
 from analysis import (
     calculate_statistics, 
     compare_regions, 
-    calculate_cumulative_inflation,
     identify_trends
 )
 from visualization import (
     create_output_directory,
     plot_inflation_comparison,
     plot_difference,
-    plot_statistics_comparison,
-    plot_cumulative_inflation
+    plot_statistics_comparison
 )
 from report_generator import generate_text_report, print_summary
 
@@ -37,14 +35,17 @@ def main():
     # Step 2: Process data
     print("[2/6] Processing data...")
     df = process_inflation_data(raw_data)
-    print(f"      Processed {len(df)} data points")
+    
+    # Filter out any rows with missing dates
+    df = df.dropna(subset=['date'])
+    
+    print(f"      Processed {len(df)} monthly data points from {df['date'].min():%B %Y} to {df['date'].max():%B %Y}")
     print()
     
     # Step 3: Analyze data
     print("[3/6] Analyzing data...")
     stats = calculate_statistics(df)
     comparison = compare_regions(df)
-    cumulative = calculate_cumulative_inflation(df)
     trends = identify_trends(df)
     print("      Analysis complete")
     print()
@@ -56,17 +57,16 @@ def main():
     plot_inflation_comparison(df, output_dir)
     plot_difference(comparison, output_dir)
     plot_statistics_comparison(stats, output_dir)
-    plot_cumulative_inflation(cumulative, output_dir)
     print()
     
     # Step 5: Generate text report
     print("[5/6] Generating text report...")
-    generate_text_report(df, stats, comparison, cumulative, trends, output_dir)
+    generate_text_report(df, stats, comparison, trends, output_dir)
     print()
     
     # Step 6: Print summary
     print("[6/6] Summary:")
-    print_summary(stats, cumulative, trends)
+    print_summary(stats, trends)
     print()
     
     print("=" * 80)

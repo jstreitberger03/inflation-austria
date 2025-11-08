@@ -4,7 +4,7 @@ Module for analyzing inflation data and comparing Austria with Euro zone.
 import pandas as pd
 
 
-def calculate_statistics(df):
+def calculate_statistics(df, config):
     """
     Calculate statistical measures for inflation data.
     
@@ -15,7 +15,7 @@ def calculate_statistics(df):
         dict: Dictionary containing statistics for each region
     """
     # Filter to 2020 onwards for statistics
-    df_filtered = df[df['date'] >= '2020-01-01'].copy()
+    df_filtered = df[df['date'] >= config['analysis_start_date']].copy()
     
     stats = {}
     
@@ -46,8 +46,11 @@ def compare_regions(df):
     Returns:
         pd.DataFrame: Month-by-month comparison with differences
     """
+    # Filter for overall inflation (CP00) to avoid duplicates before pivoting
+    df_overall = df[df['coicop'] == 'CP00'].copy()
+    
     # Pivot to have Austria and Euro zone as columns
-    comparison = df.pivot(index='date', columns='country', values='inflation_rate')
+    comparison = df_overall.pivot(index='date', columns='country', values='inflation_rate')
     
     if 'Österreich' in comparison.columns and 'Eurozone' in comparison.columns:
         comparison['Difference (AT - EA)'] = comparison['Österreich'] - comparison['Eurozone']

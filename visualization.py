@@ -14,11 +14,12 @@ def create_output_directory():
     return output_dir
 
 
-def plot_inflation_comparison(df, output_dir='output'):
+def plot_inflation_comparison(df, config, output_dir='output'):
     """
     Create a line plot comparing inflation rates with forecast.
     
     Args:
+        config (dict): Configuration dictionary
         df (pd.DataFrame): Processed inflation data
         output_dir (str): Directory to save the plot
         
@@ -43,11 +44,15 @@ def plot_inflation_comparison(df, output_dir='output'):
                 pass  # Fall back to default if German locale not available
     
     # Filter to 2020 onwards for this plot
-    df = df[df['date'] >= '2020-01-01'].copy()
+    df_filtered_for_plot = df[(df['date'] >= config['analysis_start_date']) & (df['coicop'] == 'CP00')].copy()
+    
+    if df_filtered_for_plot.empty:
+        print("No overall inflation data found for comparison plot after filtering.")
+        return None
     
     # Generate 6-month forecast for all countries, but only show until March 2026
-    forecast_df = forecast_inflation(df, months_ahead=6)
-    forecast_df = forecast_df[forecast_df['date'] <= '2026-03-31'].copy()
+    forecast_df = forecast_inflation(df_filtered_for_plot, config)
+    forecast_df = forecast_df[forecast_df['date'] <= config['forecast_display_limit']].copy()
     
     # Create connection points: add last historical point to forecast data to ensure continuity
     connection_points = []
@@ -67,7 +72,7 @@ def plot_inflation_comparison(df, output_dir='output'):
     connection_df = pd.DataFrame(connection_points)
     
     # Combine historical and forecast
-    df_hist = df.copy()
+    df_hist = df_filtered_for_plot.copy()
     df_hist['type'] = 'Historisch'
     df_hist['lower_bound'] = df_hist['inflation_rate']
     df_hist['upper_bound'] = df_hist['inflation_rate']
@@ -151,11 +156,12 @@ def plot_inflation_comparison(df, output_dir='output'):
     return output_path
 
 
-def plot_difference(comparison_df, output_dir='output'):
+def plot_difference(comparison_df, config, output_dir='output'):
     """
     Create a bar plot showing the difference in inflation rates.
     
     Args:
+        config (dict): Configuration dictionary
         comparison_df (pd.DataFrame): Comparison DataFrame from analysis
         output_dir (str): Directory to save the plot
         
@@ -168,9 +174,9 @@ def plot_difference(comparison_df, output_dir='output'):
     
     # Filter to 2020 onwards (check if index is datetime or year)
     if hasattr(comparison_df.index, 'year'):
-        comparison_df = comparison_df[comparison_df.index.year >= 2020].copy()
+        comparison_df = comparison_df[comparison_df.index >= config['analysis_start_date']].copy()
     else:
-        comparison_df = comparison_df[comparison_df.index >= 2020].copy()
+        comparison_df = comparison_df[comparison_df.index >= pd.to_datetime(config['analysis_start_date'])].copy()
     
     # Reset index to make date a column for plotnine
     plot_df = comparison_df.reset_index()
@@ -213,11 +219,74 @@ def plot_difference(comparison_df, output_dir='output'):
     return output_path
 
 
-def plot_statistics_comparison(stats, output_dir='output'):
+def plot_inflation_components(df, output_dir='output'):
+    """
+    Create a line plot showing the components of inflation for Austria.
+    
+    Args:
+        df (pd.DataFrame): Processed inflation data with components
+        output_dir (str): Directory to save the plot
+        
+    Returns:
+        str: Path to the saved plot
+    """
+    import numpy as np
+    
+    # Filter for Austria and data from 2020 onwards
+    df_austria = df[(df['geo'] == 'AT') & (df['date'] >= '2020-01-01')].copy()
+    
+    if df_austria.empty or 'category' not in df_austria.columns:
+        print("No component data found for Austria to plot.")
+        return None
+        
+    # Calculate y-axis limits
+    y_min = np.floor(df_austria['inflation_rate'].min())
+    y_max = np.ceil(df_austria['inflation_rate'].max())
+    y_breaks = np.arange(y_min, y_max + 2, 2.0)
+
+    plot = (ggplot(df_austria, aes(x='date', y='inflation_rate', color='category'))
+            + geom_line(aes(size='category'), alpha=0.9)
+            + geom_point(aes(shape='category'), size=2.5, alpha=0.7)
+            + scale_size_manual(values={'Gesamtinflation': 1.5, 'Energie': 1.0, 'Nahrungsmittel, Alkohol & Tabak': 1.0, 'Dienstleistungen': 1.0, 'Industriegüter (ohne Energie)': 1.0})
+            + scale_color_brewer(type='qual', palette='Set1')
+            + scale_x_datetime(date_labels='%b %Y', date_breaks='4 months')
+            + scale_y_continuous(limits=[y_min, y_max], breaks=y_breaks)
+            + theme_minimal()
+            + labs(title='Bestandteile der Inflation in Österreich (seit 2020)',
+                  x='',
+                  y='Inflationsrate (%)',
+                  color='Inflationskomponente',
+                  size='Inflationskomponente',
+                  shape='Inflationskomponente',
+                  caption='Quelle: Eurostat (2025). HICP - Harmonisierter Verbraucherpreisindex.')
+            + theme(
+                plot_title=element_text(size=14, face="bold", margin={'b': 15}),
+                plot_caption=element_text(size=9, hjust=0, margin={'t': 12}, color='#666666'),
+                axis_title=element_text(size=12),
+                axis_title_x=element_blank(),
+                axis_text=element_text(size=10),
+                axis_text_x=element_text(angle=45, hjust=1),
+                legend_position='top',
+                legend_title=element_text(size=11, face="bold"),
+                legend_text=element_text(size=10),
+                panel_grid_major_y=element_line(alpha=0.5, linetype='dotted', size=0.8, color='#999999'),
+                figure_size=(15, 7),
+                plot_background=element_rect(fill='#FAFAFA')
+            ))
+
+    output_path = os.path.join(output_dir, 'inflation_components_at.svg')
+    plot.save(output_path, dpi=300, format='svg')
+    
+    print(f"Saved component plot to {output_path}")
+    return output_path
+
+
+def plot_statistics_comparison(stats, config, output_dir='output'):
     """
     Create a bar plot comparing key statistics between regions.
     
     Args:
+        config (dict): Configuration dictionary
         stats (dict): Statistics dictionary from analysis
         output_dir (str): Directory to save the plot
         
@@ -255,7 +324,7 @@ def plot_statistics_comparison(stats, output_dir='output'):
                        position=position_dodge(width=0.9), size=8)
             + facet_wrap('~metric', ncol=2, scales='free_y')
             + theme_minimal()
-            + labs(title='Deskriptive Statistik der Inflationsraten (seit 2020)',
+            + labs(title=f"Deskriptive Statistik der Inflationsraten (seit {pd.to_datetime(config['analysis_start_date']).year})",
                   x='',
                   y='Inflationsrate (%)',
                   caption='Quelle: Eurostat (2025). HICP - Harmonisierter Verbraucherpreisindex.')
@@ -279,15 +348,6 @@ def plot_statistics_comparison(stats, output_dir='output'):
     
     print(f"Saved plot to {output_path}")
     return output_path
-
-
-def plot_inflation_with_forecast(df, forecast_df, output_dir='output'):
-    """
-    Separate detailed forecast plot (now integrated into main comparison).
-    This function kept for backward compatibility.
-    """
-    # This is now integrated into plot_inflation_comparison
-    return plot_inflation_comparison(df, output_dir)
 
 
 def plot_ecb_interest_rates(interest_df, output_dir='output'):
@@ -510,11 +570,12 @@ def plot_eu_heatmap(output_dir='output'):
         return None
 
 
-def plot_historical_comparison(output_dir='output'):
+def plot_historical_comparison(config, output_dir='output'):
     """
     Create a historical comparison plot since Euro introduction with financial crisis markers.
     
     Args:
+        config (dict): Configuration dictionary
         output_dir (str): Directory to save the plot
         
     Returns:
@@ -544,7 +605,7 @@ def plot_historical_comparison(output_dir='output'):
         
         df_filtered = df[
             (df['coicop'].str.startswith('CP00')) &
-            (df['geo'].isin(['AT', 'DE', 'EA20', 'EA19']))
+            (df['geo'].isin(config['countries'] + ['EA19']))
         ].copy()
         
         if 'EA20' in df_filtered['geo'].values and 'EA19' in df_filtered['geo'].values:
@@ -565,7 +626,7 @@ def plot_historical_comparison(output_dir='output'):
         df_long = df_long.dropna(subset=['inflation_rate', 'date'])
         
         # Filter from 2002 onwards 
-        df_long = df_long[df_long['date'] >= '2002-01-01']
+        df_long = df_long[df_long['date'] >= config['historical_start_date']]
         
         df_long['country'] = df_long['geo'].map({
             'AT': 'Österreich',
@@ -602,7 +663,7 @@ def plot_historical_comparison(output_dir='output'):
                 + scale_x_datetime(date_labels='%Y', date_breaks='2 years')
                 + scale_y_continuous(limits=[y_min, y_max], breaks=y_breaks)
                 + theme_minimal()
-                + labs(title='Langfristige Inflationsentwicklung (seit 2002)',
+                + labs(title=f"Langfristige Inflationsentwicklung (seit {pd.to_datetime(config['historical_start_date']).year})",
                       x='',
                       y='Inflationsrate (%)',
                       color='Region',
@@ -636,4 +697,3 @@ def plot_historical_comparison(output_dir='output'):
     except Exception as e:
         print(f"Error creating historical plot: {e}")
         return None
-

@@ -1,0 +1,24 @@
+# ==================================================
+# Konfiguration für den Inflationsbericht-Generator
+# ==================================================
+
+# --- Datenabruf ---
+# Liste der Ländercodes (ISO 3166-1 Alpha-2) und Eurostat-Aggregate
+countries:
+  - AT  # Österreich
+  - DE  # Deutschland
+  - EA20 # Eurozone (20 Länder)
+
+# --- Analyse ---
+# Startdatum für die meisten Analysen und Diagramme (z.B. "2020-01-01")
+analysis_start_date: "2020-01-01"
+# Startdatum für die langfristige historische Grafik
+historical_start_date: "2002-01-01"
+
+# --- Prognose ---
+# Anzahl der Monate, die in die Zukunft prognostiziert werden sollen
+forecast_months: 12
+# Anzahl der vergangenen Monate, die für das Training des Prognosemodells verwendet werden
+forecast_training_window: 24
+# Maximales Datum, das in Prognosediagrammen angezeigt wird (z.B. "2026-03-31")
+forecast_display_limit: "2026-03-31"

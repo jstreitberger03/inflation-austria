@@ -354,6 +354,12 @@ def generate_html_report(df, stats, comparison, trends, forecast_df, output_dir=
                     </object>
                 </div>
                 <div class="image-container">
+                    <h3>Bestandteile der Inflation in Österreich</h3>
+                    <object data="inflation_components_at.svg" type="image/svg+xml">
+                        <p>SVG wird nicht unterstützt.</p>
+                    </object>
+                </div>
+                <div class="image-container">
                     <h3>EU-weiter Inflationsvergleich (Heatmap)</h3>
                     <object data="eu_inflation_heatmap.svg" type="image/svg+xml">
                         <p>SVG wird nicht unterstützt.</p>

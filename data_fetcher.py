@@ -9,7 +9,7 @@ from datetime import timedelta
 from pandas.tseries.offsets import MonthBegin
 
 
-def fetch_inflation_data():
+def fetch_inflation_data(config):
     """
     Fetch HICP (Harmonized Index of Consumer Prices) inflation data from Eurostat.
     
@@ -32,13 +32,17 @@ def fetch_inflation_data():
         if 'geo\\TIME_PERIOD' in df.columns:
             df = df.rename(columns={'geo\\TIME_PERIOD': 'geo'})
         
-        # Filter for Austria (AT), Germany (DE) and Euro area (EA20 or EA19)
-        # Also filter for all-items HICP (CP00)
+        # Define COICOP categories to fetch
+        # CP00: All-items HICP
+        # Special aggregates: FOOD, NRG, IGD, SERV
+        coicop_categories = ['CP00', 'FOOD', 'NRG', 'IGD', 'SERV']
+        
+        # Get countries from config, add EA19 for fallback compatibility
+        countries_to_fetch = config['countries'] + ['EA19']
+        
         # Prefer EA20 over EA19 if both exist
-        df_filtered = df[
-            (df['coicop'].str.startswith('CP00')) &  # All-items HICP
-            (df['geo'].isin(['AT', 'DE', 'EA20', 'EA19']))  # Austria, Germany and Euro area
-        ].copy()
+        df_filtered = df[(df['coicop'].isin(coicop_categories)) &
+                         (df['geo'].isin(countries_to_fetch))].copy()
         
         # If we have both EA19 and EA20, keep only EA20
         if 'EA20' in df_filtered['geo'].values and 'EA19' in df_filtered['geo'].values:
@@ -81,7 +85,7 @@ def _get_sample_data():
     return data
 
 
-def process_inflation_data(df):
+def process_inflation_data(df, config):
     """
     Process and clean the inflation data for analysis.
     
@@ -97,7 +101,7 @@ def process_inflation_data(df):
     
     # Reshape from wide to long format
     df_long = df.melt(
-        id_vars=['geo'],
+        id_vars=['geo', 'coicop'],
         value_vars=time_columns,
         var_name='period',
         value_name='inflation_rate'
@@ -112,7 +116,7 @@ def process_inflation_data(df):
     df_long = df_long.dropna(subset=['inflation_rate', 'date'])
     
     # Filter data from 2002 onwards (Euro introduction transition period)
-    df_long = df_long[df_long['date'] >= '2002-01-01']
+    df_long = df_long[df_long['date'] >= config['historical_start_date']]
     
     # Add readable country names
     df_long['country'] = df_long['geo'].map({
@@ -122,13 +126,22 @@ def process_inflation_data(df):
         'EA19': 'Eurozone'  # Support both EA19 and EA20
     })
     
+    # Add readable category names
+    df_long['category'] = df_long['coicop'].map({
+        'CP00': 'Gesamtinflation',
+        'FOOD': 'Nahrungsmittel, Alkohol & Tabak',
+        'NRG': 'Energie',
+        'IGD': 'Industriegüter (ohne Energie)',
+        'SERV': 'Dienstleistungen'
+    })
+    
     # Add year column for compatibility
     df_long['year'] = df_long['date'].dt.year
     
     # Sort by date
     df_long = df_long.sort_values('date')
     
-    return df_long[['date', 'year', 'geo', 'country', 'inflation_rate']]
+    return df_long[['date', 'year', 'geo', 'country', 'coicop', 'category', 'inflation_rate']]
 
 
 def fetch_ecb_interest_rates():
@@ -296,7 +309,7 @@ def fetch_ecb_interest_rates():
         return pd.concat([df_main, df_deposit], ignore_index=True)
 
 
-def forecast_inflation(df, months_ahead=12, method='holt_winters'):
+def forecast_inflation(df, config, method='holt_winters'):
     """
     Forecast inflation using time series models with confidence intervals.
     
@@ -308,7 +321,7 @@ def forecast_inflation(df, months_ahead=12, method='holt_winters'):
     
     Args:
         df (pd.DataFrame): Historical inflation data
-        months_ahead (int): Number of months to forecast (default: 12)
+        config (dict): Configuration dictionary
         method (str): 'holt_winters' or 'linear' (default: 'holt_winters')
         
     Returns:
@@ -317,13 +330,16 @@ def forecast_inflation(df, months_ahead=12, method='holt_winters'):
     from statsmodels.tsa.holtwinters import ExponentialSmoothing
     
     forecasts = []
+    
+    months_ahead = config['forecast_months']
+    training_window = config['forecast_training_window']
 
     for geo in df['geo'].unique():
-        region_data = df[df['geo'] == geo].sort_values('date').copy()
+        region_data = df[(df['geo'] == geo) & (df['coicop'] == 'CP00')].sort_values('date').copy()
         country_name = region_data['country'].iloc[0]
         
         # Use last 24 months for better pattern recognition (or all if less available)
-        training_window = min(24, len(region_data))
+        training_window = min(training_window, len(region_data))
         training_data = region_data.tail(training_window).copy()
         
         try:

@@ -88,6 +88,7 @@ inflation-report-austria/
 ├── analysis.py              # Statistische Analysefunktionen
 ├── visualization.py         # Diagrammerstellung mit plotnine
 ├── report_generator.py      # Erstellung des Textberichts
+├── config.yaml              # Konfigurationsdatei für Parameter
 ├── html_report_generator.py # Erstellung des HTML-Berichts
 ├── pyproject.toml           # Projektmetadaten und Build-Konfiguration
 ├── requirements.txt         # Python-Paketabhängigkeiten

@@ -1,7 +1,0 @@
-pandas>=2.0
-statsmodels>=0.14
-scikit-learn>=1.0
-plotnine>=0.12
-eurostat>=1.0
-numpy>=1.20
-PyYAML>=6.0

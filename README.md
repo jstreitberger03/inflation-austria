@@ -1,10 +1,14 @@
 # Inflationsbericht Österreich
 
+![Build](https://github.com/jstreitberger03/inflation-report-austria/actions/workflows/ci.yml/badge.svg)
+![License](https://img.shields.io/badge/license-MIT-blue.svg)
+![Python](https://img.shields.io/badge/Python-3.11+-blue)
+
 Ein Werkzeug zur Analyse und Visualisierung von Inflationsdaten für Österreich im Vergleich zu Deutschland und dem Euroraum.
 
 ## Übersicht
 
-Dieses Projekt bietet einen automatisierten Arbeitsablauf zum Abrufen, Analysieren und Visualisieren von Inflationsdaten von Eurostat. Es generiert einen umfassenden Bericht im HTML- und Textformat, einschließlich Zeitreihenprognosen. Das Hauptziel ist es, eine standardisierte und reproduzierbare Analyse von Inflationstrends für die Wirtschaftsforschung und Berichterstattung bereitzustellen.
+Dieses Projekt bietet einen automatisierten Arbeitsablauf zum Abrufen, Analysieren und Visualisieren von Inflationsdaten von Eurostat. Der Fokus liegt auf der reproduzierbaren Erstellung hochwertiger SVG-Grafiken, die direkt in Präsentationen oder Berichten genutzt werden können.
 
 ## Funktionen
 
@@ -36,9 +40,21 @@ Das Tool generiert die folgenden SVG-Diagramme:
 5.  `historical_comparison.svg`: Langfristige Inflationsentwicklung seit 2002 mit Markierungen für wichtige wirtschaftliche Ereignisse.
 6.  `eu_inflation_heatmap.svg`: Eine Heatmap der Inflationsraten in der Europäischen Union.
 
-### Berichterstattung
-- **HTML-Bericht**: Ein detaillierter Bericht mit einer Zusammenfassung für Entscheidungsträger, Methodik, allen Visualisierungen und statistischen Tabellen.
-- **Text-Bericht**: Eine reine Textzusammenfassung der wichtigsten Ergebnisse.
+### Output
+- Schlanke SVG-Grafiken ohne HTML/Text-Berichte
+- Separate Makefile-Targets zum Erzeugen (`make figures`) und Aufräumen (`make clean`) der Ausgaben
+
+### Vorschau (Beispiele)
+> Hinweis: Die SVGs werden bei der Ausführung neu erzeugt. Diese Beispiele zeigen typische Ergebnisse.
+
+| Plot | Vorschau |
+| --- | --- |
+| Inflation Comparison | ![Inflation Comparison](docs/previews/inflation_comparison.png) |
+| ECB Interest Rates | ![ECB Rates](docs/previews/ecb_interest_rates.png) |
+| Inflation Difference | ![Inflation Difference](docs/previews/inflation_difference.png) |
+| Statistics Comparison | ![Statistics Comparison](docs/previews/statistics_comparison.png) |
+| Historical Comparison | ![Historical Comparison](docs/previews/historical_comparison.png) |
+| EU Inflation Heatmap | ![EU Heatmap](docs/previews/eu_inflation_heatmap.png) |
 
 ## Erste Schritte
 
@@ -65,39 +81,40 @@ Das Tool generiert die folgenden SVG-Diagramme:
       source .venv/bin/activate
       ```
 
-3.  **Abhängigkeiten installieren**:
+3.  **Abhängigkeiten installieren** (benötigt das Nachbar-Repository `python-plot-template`):
     ```bash
-    pip install -r requirements.txt
+    pip install .
+    ```
+    Falls das Template-Repo nicht neben diesem Projekt liegt, passen Sie den Pfad in `pyproject.toml` an oder installieren Sie es direkt:
+    ```bash
+    pip install -e ../python-plot-template
     ```
 
 ### Verwendung
 
-Um den vollständigen Bericht zu erstellen, führen Sie das Hauptskript aus:
+Erzeugen Sie die Grafiken mit dem Makefile:
 ```bash
-python main.py
+make figures
 ```
-Die Ausgabedateien werden im Verzeichnis `output/` gespeichert.
+
+Die SVG-Dateien werden im Verzeichnis `output/` gespeichert. Zum Aufräumen:
+```bash
+make clean
+```
 
 ## Projektstruktur
 
 ```
 inflation-report-austria/
 │
-├── main.py                  # Hauptskript zur Orchestrierung des Arbeitsablaufs
-├── data_fetcher.py          # Datenabruf von Eurostat und Prognoseerstellung
-├── analysis.py              # Statistische Analysefunktionen
-├── visualization.py         # Diagrammerstellung mit plotnine
-├── report_generator.py      # Erstellung des Textberichts
-├── config.yaml              # Konfigurationsdatei für Parameter
-├── html_report_generator.py # Erstellung des HTML-Berichts
-├── pyproject.toml           # Projektmetadaten und Build-Konfiguration
-├── requirements.txt         # Python-Paketabhängigkeiten
-├── README.md                # Projektdokumentation
+├── Makefile              # Targets für figures/clean
+├── main.py               # Hauptskript zur Orchestrierung des Arbeitsablaufs
+├── config.yaml           # Konfigurationsdatei für Parameter
+├── inflation_report/     # Paket mit Datenabruf, Analyse und Visualisierung
+├── README.md             # Projektdokumentation
 │
-└── output/                  # Generierte Berichte und Visualisierungen
-    ├── *.svg
-    ├── inflation_report.html
-    └── inflation_report.txt
+└── output/               # Generierte SVG-Grafiken (im Git ignoriert)
+    └── *.svg
 ```
 
 ## Methodik
@@ -121,7 +138,7 @@ Das primäre Prognosemodell ist die **Holt-Winters Exponentielle Glättung** mit
 | **Datenverarbeitung**| pandas        |
 | **Statistik**      | statsmodels   |
 | **ML-Fallback**    | scikit-learn  |
-| **Visualisierung** | plotnine      |
+| **Visualisierung** | Matplotlib + python-plot-template |
 | **API-Client**     | eurostat      |
 | **Numerik**        | numpy         |
 

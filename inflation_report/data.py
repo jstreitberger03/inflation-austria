@@ -77,6 +77,7 @@ def process_inflation_data(df: pd.DataFrame, config: ReportConfig | Mapping[str,
     return df_long[["date", "year", "geo", "country", "coicop", "category", "inflation_rate"]]
 
 
+
 def fetch_ecb_interest_rates(dataset: str = "irt_st_m") -> pd.DataFrame:
     """
     Fetch ECB main refinancing and deposit facility rates.

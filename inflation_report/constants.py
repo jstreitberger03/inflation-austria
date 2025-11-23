@@ -7,9 +7,7 @@ COICOP_CATEGORIES = ["CP00", "FOOD", "NRG", "IGD", "SERV"]
 COUNTRY_NAMES = {
     "AT": "Österreich",
     "DE": "Deutschland",
-    "EA19": "Eurozone",
     "EA20": "Eurozone",
-    "EA": "Eurozone",
 }
 
 CATEGORY_NAMES = {

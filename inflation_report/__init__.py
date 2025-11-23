@@ -1,4 +1,4 @@
-"""Inflation report package providing data, analysis, visualization, and reporting utilities."""
+"""Inflation report package providing data, analysis, visualization, and summary utilities."""
 
 from .config import ReportConfig, load_config
 from .data import fetch_ecb_interest_rates, fetch_inflation_data, process_inflation_data
@@ -14,7 +14,6 @@ from .visualization import (
     plot_inflation_components,
     plot_statistics_comparison,
 )
-from .reporting.html import generate_html_report
 from .reporting.text import generate_text_report, print_summary
 
 __all__ = [
@@ -35,7 +34,6 @@ __all__ = [
     "plot_inflation_comparison",
     "plot_inflation_components",
     "plot_statistics_comparison",
-    "generate_html_report",
     "generate_text_report",
     "print_summary",
 ]

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Main entrypoint for generating the Austria Inflation Report."""
+"""Main entrypoint for generating Austria's inflation figure set."""
 
 import sys
 

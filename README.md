@@ -1,6 +1,6 @@
 # Inflationsbericht Österreich
 
-![Build](https://github.com/jstreitberger03/inflation-report-austria/actions/workflows/ci.yml/badge.svg)
+![Build](https://github.com/jstreitberger03/inflation-report-austria/actions/workflows/ci.yml/badge.svg?branch=main)
 ![License](https://img.shields.io/badge/license-MIT-blue.svg)
 ![Python](https://img.shields.io/badge/Python-3.11+-blue)
 
@@ -49,12 +49,12 @@ Das Tool generiert die folgenden SVG-Diagramme:
 
 | Plot | Vorschau |
 | --- | --- |
-| Inflation Comparison | ![Inflation Comparison](docs/previews/inflation_comparison.png) |
-| ECB Interest Rates | ![ECB Rates](docs/previews/ecb_interest_rates.png) |
-| Inflation Difference | ![Inflation Difference](docs/previews/inflation_difference.png) |
-| Statistics Comparison | ![Statistics Comparison](docs/previews/statistics_comparison.png) |
-| Historical Comparison | ![Historical Comparison](docs/previews/historical_comparison.png) |
-| EU Inflation Heatmap | ![EU Heatmap](docs/previews/eu_inflation_heatmap.png) |
+| Inflation Comparison | ![Inflation Comparison](docs/previews/inflation_comparison.svg) |
+| ECB Interest Rates | ![ECB Rates](docs/previews/ecb_interest_rates.svg) |
+| Inflation Difference | ![Inflation Difference](docs/previews/inflation_difference.svg) |
+| Statistics Comparison | ![Statistics Comparison](docs/previews/statistics_comparison.svg) |
+| Historical Comparison | ![Historical Comparison](docs/previews/historical_comparison.svg) |
+| EU Inflation Heatmap | ![EU Heatmap](docs/previews/eu_inflation_heatmap.svg) |
 
 ## Erste Schritte
 

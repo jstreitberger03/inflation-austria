@@ -1,4 +1,4 @@
-# Inflationsbericht Österreich
+# Inflationsbericht Österreich ![CI](https://github.com/jstreitberger03/inflation-report-austria/actions/workflows/ci.yml/badge.svg)
 
 API und Dashboard zur Analyse von Inflationsdaten für Österreich im Vergleich zu Deutschland und dem Euroraum.
 

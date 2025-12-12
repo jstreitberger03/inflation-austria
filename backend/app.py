@@ -52,9 +52,16 @@ app.add_middleware(
 
 
 def _df_records(df: pd.DataFrame) -> List[Dict[str, Any]]:
+    """
+    Convert DataFrame to JSON-serializable records, memoizing datetime formatting per column.
+    """
+    if df.empty:
+        return []
+
     records = df.copy()
-    for col in records.columns:
-        if pd.api.types.is_datetime64_any_dtype(records[col]):
+    # Precompute string conversion map per datetime column to avoid repeated dtype checks downstream.
+    for col, dtype in records.dtypes.items():
+        if pd.api.types.is_datetime64_any_dtype(dtype):
             records[col] = records[col].dt.strftime("%Y-%m-%d")
     return records.to_dict(orient="records")
 

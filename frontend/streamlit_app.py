@@ -18,9 +18,9 @@ from inflation_report.constants import EU_COUNTRY_CODES
 
 API_URL_DEFAULT = os.getenv("INFLATION_API_URL", "http://127.0.0.1:8000")
 
-st.set_page_config(page_title="Austria Inflation Dashboard", layout="wide")
+st.set_page_config(page_title="Inflations Dashboard", layout="wide")
 
-st.title("Austria Inflation Dashboard")
+st.title("Inflations Dashboard")
 
 
 def fetch_data(api_url: str, refresh: bool = False, payload: Dict[str, Any] | None = None) -> Dict[str, Any]:
@@ -97,7 +97,7 @@ comparison = pd.DataFrame(data.get("comparison", []))
 sel_start = None
 sel_end = None
 
-st.subheader("Inflation")
+st.subheader("Inflationsvergleich")
 
 if not inflation.empty:
     hist = inflation[inflation["coicop"] == "CP00"].copy()
@@ -213,7 +213,7 @@ if not comparison.empty:
             comparison,
             x="date",
             y="Difference (AT - EA)",
-            labels={"Difference (AT - EA)": "Inflationsrate Differenz (AT - EA)", "date": "Jahr"},
+            labels={"Differenz (AT - EA)": "Differenz Inflationsrate AT - EA", "date": "Jahr"},
             title="Inflationsdifferenz (AT - EA)",
         )
         fig_diff.update_xaxes(tickformat="%b %Y", showgrid=False)
@@ -251,4 +251,4 @@ if not interest.empty:
 else:
     st.info("Keine Zinsdaten verfügbar.")
 
-st.caption("Powered by FastAPI + Streamlit (keine Dateien, alles live aus der API)")
+st.caption("Powered by FastAPI + Streamlit")

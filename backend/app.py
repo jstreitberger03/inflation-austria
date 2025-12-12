@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from typing import Any, Dict, List, Optional
 from contextlib import asynccontextmanager
 
@@ -13,7 +14,16 @@ from inflation_report.config import ReportConfig, load_config
 from inflation_report.data import fetch_interest_rates, fetch_inflation_data, process_inflation_data
 
 
-DATA_CACHE: Dict[str, Any] = {}
+DATA_CACHE: Dict[str, DataResponse] = {}
+
+
+def _cache_key(override: Optional[DataRequest]) -> str:
+    if override is None:
+        return "default"
+    payload = {k: v for k, v in override.model_dump(exclude_none=True).items()}
+    if not payload:
+        return "default"
+    return json.dumps(payload, sort_keys=True)
 
 
 @asynccontextmanager
@@ -72,6 +82,10 @@ class DataRequest(BaseModel):
 
 
 def compute_data(config_path: Optional[str] = None, override: Optional[DataRequest] = None) -> DataResponse:
+    cache_key = _cache_key(override)
+    if cache_key in DATA_CACHE:
+        return DATA_CACHE[cache_key]
+
     cfg: ReportConfig = load_config(config_path)
     if override:
         if override.countries:
@@ -109,7 +123,7 @@ def compute_data(config_path: Optional[str] = None, override: Optional[DataReque
     interest_df = fetch_interest_rates()
     comparison_df = compare_regions(df)
 
-    return DataResponse(
+    data_response = DataResponse(
         config=ConfigResponse(
             countries=cfg.countries,
             analysis_start_date=str(cfg.analysis_start_date.date()),
@@ -122,6 +136,8 @@ def compute_data(config_path: Optional[str] = None, override: Optional[DataReque
         interest_rates=_df_records(interest_df) if not interest_df.empty else [],
         comparison=_df_records(comparison_df.reset_index()) if not comparison_df.empty else [],
     )
+    DATA_CACHE[cache_key] = data_response
+    return data_response
 
 
 @app.get("/health")
@@ -131,26 +147,18 @@ def health() -> dict:
 
 @app.get("/config", response_model=ConfigResponse)
 def get_config() -> ConfigResponse:
-    data: DataResponse = DATA_CACHE.get("data") or compute_data()
-    DATA_CACHE["data"] = data
+    data: DataResponse = compute_data()
     return data.config
 
 
 @app.get("/data", response_model=DataResponse)
 def get_data() -> DataResponse:
-    data: DataResponse = DATA_CACHE.get("data") or compute_data()
-    DATA_CACHE["data"] = data
-    return data
+    return compute_data()
 
 
 @app.post("/refresh", response_model=DataResponse)
 def refresh_data(payload: DataRequest = Body(default=None)) -> DataResponse:
     try:
-        data = compute_data(override=payload)
-        DATA_CACHE["data"] = data
-        return data
+        return compute_data(override=payload)
     except Exception as exc:
         raise HTTPException(status_code=500, detail=str(exc))
-Weitere Ländercodes (ISO, kommagetrennt)
-
-fr

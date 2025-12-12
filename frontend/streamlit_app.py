@@ -94,6 +94,9 @@ inflation = pd.DataFrame(data.get("inflation", []))
 interest = pd.DataFrame(data.get("interest_rates", []))
 comparison = pd.DataFrame(data.get("comparison", []))
 
+sel_start = None
+sel_end = None
+
 st.subheader("Inflation")
 
 if not inflation.empty:
@@ -175,6 +178,11 @@ if not components_df.empty:
             & (components_df["coicop"] != "CP00")
             & components_df["category"].notna()
         ].copy()
+        if sel_start and sel_end:
+            comp_filtered = comp_filtered[
+                (comp_filtered["date"] >= pd.Timestamp(sel_start))
+                & (comp_filtered["date"] <= pd.Timestamp(sel_end))
+            ]
 
         if comp_filtered.empty:
             st.info("Keine Komponenten-Daten verfügbar.")
@@ -189,6 +197,7 @@ if not components_df.empty:
                 title=f"Inflationskomponenten – {selected_component_country}",
                 labels={"inflation_rate": "Inflationsrate (%)", "date": "Jahr", "category": "Komponente"},
             )
+            fig_comp.for_each_trace(lambda t: t.update(stackgroup=t.name, fill="tozeroy"))
             fig_comp.update_xaxes(tickformat="%b %Y", showgrid=False)
             fig_comp.update_yaxes(showgrid=True, gridcolor="#B0B0B0", griddash="dot")
             st.plotly_chart(fig_comp, width="stretch")

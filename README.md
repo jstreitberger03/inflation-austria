@@ -1,49 +1,23 @@
 # Inflationsbericht Österreich
 
-Ein Werkzeug zur Analyse und Visualisierung von Inflationsdaten für Österreich im Vergleich zu Deutschland und dem Euroraum.
+API und Dashboard zur Analyse von Inflationsdaten für Österreich im Vergleich zu Deutschland und dem Euroraum.
 
 ## Übersicht
 
-Dieses Projekt bietet einen automatisierten Arbeitsablauf zum Abrufen, Analysieren und Visualisieren von Inflationsdaten von Eurostat. Es generiert einen umfassenden Bericht im HTML- und Textformat, einschließlich Zeitreihenprognosen. Das Hauptziel ist es, eine standardisierte und reproduzierbare Analyse von Inflationstrends für die Wirtschaftsforschung und Berichterstattung bereitzustellen.
+Das Projekt lädt HICP-Daten von Eurostat, bereitet sie für Österreich/Deutschland/Euroraum auf und stellt sie über eine FastAPI-API bereit. Ein Streamlit-Dashboard greift live auf die API zu und zeigt Inflationsverläufe, Zinsdaten sowie die Differenz Österreich vs. Eurozone an. Daten werden bei jedem Abruf aktualisiert; bei fehlendem Eurostat-Zugriff nutzt die API fallback-Daten.
 
 ## Funktionen
 
-### Datenanalyse
-- **Datenquelle**: Eurostat HICP (Harmonisierter Verbraucherpreisindex, `prc_hicp_manr`).
-- **Geografischer Geltungsbereich**: Österreich, Deutschland und der Euroraum (EA20).
-- **Frequenz**: Monatliche Jahresveränderungsraten der Inflation.
-- **Zeitraum**: Von 2002 bis zu den aktuellsten verfügbaren Daten.
-- **Datenaktualisierung**: Ruft bei jeder Ausführung die neuesten Daten direkt von der Eurostat-API ab.
-
-### Prognose
-- **Primärmodell**: Holt-Winters Exponentielle Glättung mit gedämpftem Trend für Zeitreihenprognosen.
-- **Fallback-Modell**: Lineare Regression wird verwendet, wenn der Datensatz für das Holt-Winters-Modell nicht ausreicht.
-- **Trainingszeitraum**: Die letzten 24 Monate der Daten werden für das Modelltraining verwendet.
-- **Konfidenzintervalle**: 95%-Prädiktionsintervalle werden berechnet und an den Prognosehorizont angepasst.
-
-### Statistische Analyse
-- Deskriptive Statistiken (Mittelwert, Median, Standardabweichung).
-- Identifizierung von Trends und Extremwerten.
-- Vergleichende Analyse zwischen den ausgewählten Regionen.
-- Berechnung von Inflationsdifferenzen.
-
-### Visualisierungen
-Das Tool generiert die folgenden SVG-Diagramme:
-1.  `inflation_comparison.svg`: Vergleichende Darstellung der Inflationsraten mit Prognosen.
-2.  `ecb_interest_rates.svg`: EZB-Leitzinsen seit 2000.
-3.  `inflation_difference.svg`: Inflationsdifferenz zwischen Österreich und dem Euroraum.
-4.  `statistics_comparison.svg`: Vergleichende Visualisierung der wichtigsten statistischen Kennzahlen.
-5.  `historical_comparison.svg`: Langfristige Inflationsentwicklung seit 2002 mit Markierungen für wichtige wirtschaftliche Ereignisse.
-6.  `eu_inflation_heatmap.svg`: Eine Heatmap der Inflationsraten in der Europäischen Union.
-
-### Berichterstattung
-- **HTML-Bericht**: Ein detaillierter Bericht mit einer Zusammenfassung für Entscheidungsträger, Methodik, allen Visualisierungen und statistischen Tabellen.
-- **Text-Bericht**: Eine reine Textzusammenfassung der wichtigsten Ergebnisse.
+- **Datenbeschaffung**: HICP (Eurostat `prc_hicp_manr`) für AT, DE, EA20 + EZB-Leitzinsen (`irt_st_m`).
+- **Aufbereitung**: Long-Format mit Ländernamen, Kategorien und sauberen Datumswerten.
+- **Analyse**: Vergleich Österreich vs. Eurozone (Differenz, Trendindikator).
+- **API**: Vorberechnete Daten + Konfiguration als JSON (`/config`, `/data`, `/refresh`).
+- **Dashboard**: Plotly-basierte Charts in Streamlit mit auswählbaren Ländern und Zeiträumen.
 
 ## Erste Schritte
 
 ### Voraussetzungen
-- Python 3.8 oder höher.
+- Python 3.8 oder höher
 
 ### Installation
 
@@ -70,60 +44,59 @@ Das Tool generiert die folgenden SVG-Diagramme:
     pip install -r requirements.txt
     ```
 
-### Verwendung
+## Dashboard + API
 
-Um den vollständigen Bericht zu erstellen, führen Sie das Hauptskript aus:
+Streamlit-Dashboard + FastAPI-Backend. Standardwerte (Länder/Zeiträume) sind im Code hinterlegt; optional kann eine eigene `config.yaml` bereitgestellt werden.
+
+### Backend starten (FastAPI)
+
 ```bash
-python main.py
+uvicorn backend.app:app --reload --port 8000
 ```
-Die Ausgabedateien werden im Verzeichnis `output/` gespeichert.
+
+Endpoints:
+- `GET /health` – Health Check
+- `GET /config` – aktuelle Konfiguration
+- `GET /data` – vorab berechnete Daten (Inflation, Vergleich, Zinsen)
+- `POST /refresh` – Daten neu berechnen (optional mit Länder-/Zeitraum-Overrides)
+
+### Dashboard starten (Streamlit)
+
+```bash
+streamlit run frontend/streamlit_app.py
+```
+
+Im Sidebar können Sie Länder hinzufügen/auswählen und den Zeitraum anpassen. Das Dashboard lädt die Daten live über die API.
 
 ## Projektstruktur
 
 ```
 inflation-report-austria/
 │
-├── main.py                  # Hauptskript zur Orchestrierung des Arbeitsablaufs
-├── data_fetcher.py          # Datenabruf von Eurostat und Prognoseerstellung
-├── analysis.py              # Statistische Analysefunktionen
-├── visualization.py         # Diagrammerstellung mit plotnine
-├── report_generator.py      # Erstellung des Textberichts
-├── config.yaml              # Konfigurationsdatei für Parameter
-├── html_report_generator.py # Erstellung des HTML-Berichts
+├── backend/                 # FastAPI Backend
+├── frontend/                # Streamlit Dashboard
+├── inflation_report/        # Kernmodule (Daten, Analyse, Config, Styles)
+# optional: config.yaml      # eigene Defaults für API/Pipeline
 ├── pyproject.toml           # Projektmetadaten und Build-Konfiguration
 ├── requirements.txt         # Python-Paketabhängigkeiten
 ├── README.md                # Projektdokumentation
-│
-└── output/                  # Generierte Berichte und Visualisierungen
-    ├── *.svg
-    ├── inflation_report.html
-    └── inflation_report.txt
 ```
 
-## Methodik
-
-### Datenquelle
+## Datenbasis
 - **Anbieter**: Eurostat
-- **Datensatz**: `prc_hicp_manr` (HVPI - monatliche Daten, jährliche Veränderungsrate)
+- **Datensätze**: `prc_hicp_manr` (Inflation), `irt_st_m` (EZB-Leitzinsen)
 - **Regionen**: Österreich (AT), Deutschland (DE), Euroraum (EA20)
-
-### Prognosemodell
-Das primäre Prognosemodell ist die **Holt-Winters Exponentielle Glättung** mit einem additiven, gedämpften Trend. Diese Methode eignet sich gut für nicht-saisonale Zeitreihen mit einem Trend. Wenn die Zeitreihe für dieses Modell zu kurz ist, wird als Fallback eine einfache **lineare Regression** über die letzten 12 Monate verwendet.
-
-- **Trainingsdaten**: Das Modell wird auf den Daten der letzten 24 Monate trainiert, um sich an aktuelle Trends anzupassen.
-- **Konfidenzintervalle**: 95%-Prädiktionsintervalle werden auf Basis der Standardabweichung der Modellresiduen berechnet, mit einer Anpassung für den Prognosehorizont.
+- **Zeitraum**: ab 2002 (Inflation) bzw. 2000 (Zinsen)
 
 ## Technologie-Stack
 
 | Komponente         | Technologie   |
 |--------------------|---------------|
 | **Kern**           | Python 3.8+   |
-| **Datenverarbeitung**| pandas        |
-| **Statistik**      | statsmodels   |
-| **ML-Fallback**    | scikit-learn  |
-| **Visualisierung** | plotnine      |
-| **API-Client**     | eurostat      |
-| **Numerik**        | numpy         |
+| **Daten**          | pandas, numpy, eurostat, pycountry |
+| **Config**         | PyYAML        |
+| **API**            | FastAPI, Pydantic, Uvicorn |
+| **Dashboard**      | Streamlit, Plotly, Requests |
 
 ## Lizenz
 

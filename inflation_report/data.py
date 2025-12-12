@@ -15,6 +15,16 @@ try:  # Optional import to allow offline work
 except ImportError:  # pragma: no cover - fallback for environments without eurostat
     eurostat = None
 
+try:  # Optional Fed data fetcher
+    import pandas_datareader as pdr
+except ImportError:  # pragma: no cover - optional
+    pdr = None
+
+try:  # Optional country name mapping
+    import pycountry
+except ImportError:  # pragma: no cover - pycountry not available
+    pycountry = None
+
 
 def fetch_inflation_data(
     config: ReportConfig | Mapping[str, object],
@@ -53,6 +63,28 @@ def fetch_inflation_data(
     return df_filtered
 
 
+def _country_label(code: str) -> str:
+    """Return human-friendly country name for a code, with fallbacks."""
+    if not code:
+        return code
+    # Overrides for German labels
+    overrides = {
+        "FR": "Frankreich",
+    }
+    if code in overrides:
+        return overrides[code]
+    if code in COUNTRY_NAMES:
+        return COUNTRY_NAMES[code]
+    if pycountry:
+        try:
+            c = pycountry.countries.get(alpha_2=code)
+            if c and hasattr(c, "name"):
+                return c.name
+        except Exception:
+            pass
+    return code
+
+
 def process_inflation_data(df: pd.DataFrame, config: ReportConfig | Mapping[str, object]) -> pd.DataFrame:
     """Clean and reshape raw inflation data into a tidy DataFrame."""
     config = ensure_config(config)
@@ -69,7 +101,7 @@ def process_inflation_data(df: pd.DataFrame, config: ReportConfig | Mapping[str,
     df_long = df_long.dropna(subset=["inflation_rate", "date"])
     df_long = df_long[df_long["date"] >= config.historical_start_date]
 
-    df_long["country"] = df_long["geo"].map(COUNTRY_NAMES)
+    df_long["country"] = df_long["geo"].apply(_country_label)
     df_long["category"] = df_long["coicop"].map(CATEGORY_NAMES)
     df_long["year"] = df_long["date"].dt.year
     df_long = df_long.sort_values("date")
@@ -80,25 +112,24 @@ def process_inflation_data(df: pd.DataFrame, config: ReportConfig | Mapping[str,
 def fetch_ecb_interest_rates(dataset: str = "irt_st_m") -> pd.DataFrame:
     """
     Fetch ECB main refinancing and deposit facility rates.
-
-    Returns a tidy DataFrame with rate type and date columns.
+    Returns empty DataFrame on failure (no synthetic fallback).
     """
     print("Fetching ECB interest rates from Eurostat...")
 
     if eurostat is None:
-        print("Eurostat library not available, creating synthetic interest rate data.")
-        return _synthetic_interest_rates()
+        print("Eurostat library not available; ECB rates unavailable.")
+        return pd.DataFrame(columns=["date", "rate_type", "interest_rate", "source"])
 
     try:
         df = eurostat.get_data_df(dataset, flags=False)
     except Exception as exc:  # pragma: no cover - network/service failures
         print(f"Error fetching ECB interest rates: {exc}")
-        return _synthetic_interest_rates()
+        return pd.DataFrame(columns=["date", "rate_type", "interest_rate", "source"])
 
     if "geo\\TIME_PERIOD" in df.columns:
         df = df.rename(columns={"geo\\TIME_PERIOD": "geo"})
 
-    df = df[((df["int_rt"] == "MRR_RT") | (df["int_rt"] == "DFR")) & (df["geo"] == "EA")]
+    df = df[((df["int_rt"] == "MRR_RT") | (df["int_rt"] == "DFR")) & (df["geo"].isin(["EA", "EA19", "EA20"]))]
     time_columns = [col for col in df.columns if isinstance(col, str) and "-" in str(col)]
 
     df_long = df.melt(
@@ -112,13 +143,68 @@ def fetch_ecb_interest_rates(dataset: str = "irt_st_m") -> pd.DataFrame:
     df_long = df_long.dropna(subset=["interest_rate", "date"])
     df_long = df_long[df_long["date"] >= "2000-01-01"].sort_values("date")
 
+    if df_long.empty:
+        print("ECB interest rates empty after filtering.")
+        return pd.DataFrame(columns=["date", "rate_type", "interest_rate", "source"])
+
     df_long["rate_type"] = df_long["int_rt"].map(
         {
             "MRR_RT": "main_refinancing",
             "DFR": "deposit_facility",
         }
     )
-    return df_long[["date", "rate_type", "interest_rate"]]
+    df_long["source"] = "ECB"
+    return df_long[["date", "rate_type", "interest_rate", "source"]]
+
+
+def fetch_fed_interest_rates() -> pd.DataFrame:
+    """
+    Fetch effective Fed Funds rate (monthly) from FRED.
+    Returns empty DataFrame on failure (no synthetic fallback).
+    """
+    print("Fetching Federal Reserve interest rates...")
+
+    if pdr is None:
+        print("pandas-datareader not available; Fed rates unavailable.")
+        return pd.DataFrame(columns=["date", "rate_type", "interest_rate", "source"])
+
+    try:
+        # DFF = Effective Federal Funds Rate (daily). Aggregate to monthly mean.
+        df = pdr.DataReader("DFF", "fred")
+    except Exception as exc:  # pragma: no cover - network/service failures
+        print(f"Error fetching Fed rates: {exc}")
+        return pd.DataFrame(columns=["date", "rate_type", "interest_rate", "source"])
+
+    if df.empty:
+        print("Fed rates empty after fetch.")
+        return pd.DataFrame(columns=["date", "rate_type", "interest_rate", "source"])
+
+    df = df.reset_index().rename(columns={"DATE": "date", "DFF": "interest_rate"})
+    df["date"] = pd.to_datetime(df["date"], errors="coerce")
+    df["interest_rate"] = pd.to_numeric(df["interest_rate"], errors="coerce")
+    df = df.dropna(subset=["date", "interest_rate"])
+    df = df[df["date"] >= "2000-01-01"]
+
+    # Monthly average
+    df = (
+        df.set_index("date")
+        .resample("MS")
+        .mean()
+        .reset_index()
+    )
+    df["rate_type"] = "fed_funds_effective"
+    df["source"] = "FED"
+    return df[["date", "rate_type", "interest_rate", "source"]]
+
+
+def fetch_interest_rates() -> pd.DataFrame:
+    """Return combined ECB and FED interest rates."""
+    ecb = fetch_ecb_interest_rates()
+    fed = fetch_fed_interest_rates()
+    frames = [df for df in (ecb, fed) if df is not None and not df.empty]
+    if not frames:
+        return pd.DataFrame(columns=["date", "rate_type", "interest_rate", "source"])
+    return pd.concat(frames, ignore_index=True).sort_values("date")
 
 
 def _get_sample_data() -> pd.DataFrame:
@@ -143,117 +229,3 @@ def _get_sample_data() -> pd.DataFrame:
     data["coicop"] = "CP00"
     return data
 
-
-def _synthetic_interest_rates() -> pd.DataFrame:
-    """Create synthetic ECB rates when Eurostat is unavailable."""
-    dates = pd.date_range("2000-01", "2025-10", freq="MS")
-    main_rates: list[float] = []
-    deposit_rates: list[float] = []
-
-    for date in dates:
-        if date < pd.Timestamp("2003-06-01"):
-            main_rate = 4.5
-        elif date < pd.Timestamp("2008-10-01"):
-            main_rate = 2.0
-        elif date < pd.Timestamp("2009-05-01"):
-            main_rate = 1.25
-        elif date < pd.Timestamp("2011-04-01"):
-            main_rate = 1.0
-        elif date < pd.Timestamp("2011-11-01"):
-            main_rate = 1.5
-        elif date < pd.Timestamp("2013-05-01"):
-            main_rate = 1.0
-        elif date < pd.Timestamp("2013-11-01"):
-            main_rate = 0.5
-        elif date < pd.Timestamp("2014-09-01"):
-            main_rate = 0.25
-        elif date < pd.Timestamp("2016-03-01"):
-            main_rate = 0.05
-        elif date < pd.Timestamp("2022-07-01"):
-            main_rate = 0.0
-        elif date < pd.Timestamp("2022-09-01"):
-            main_rate = 0.5
-        elif date < pd.Timestamp("2022-11-01"):
-            main_rate = 1.25
-        elif date < pd.Timestamp("2023-02-01"):
-            main_rate = 2.0
-        elif date < pd.Timestamp("2023-03-01"):
-            main_rate = 2.5
-        elif date < pd.Timestamp("2023-05-01"):
-            main_rate = 3.0
-        elif date < pd.Timestamp("2023-06-01"):
-            main_rate = 3.5
-        elif date < pd.Timestamp("2023-09-01"):
-            main_rate = 4.0
-        elif date < pd.Timestamp("2024-06-01"):
-            main_rate = 4.5
-        elif date < pd.Timestamp("2024-09-01"):
-            main_rate = 4.25
-        elif date < pd.Timestamp("2024-10-01"):
-            main_rate = 3.65
-        elif date < pd.Timestamp("2024-12-01"):
-            main_rate = 3.40
-        else:
-            main_rate = 3.15
-
-        if date < pd.Timestamp("2008-10-01"):
-            deposit_rate = main_rate - 1.0
-        elif date < pd.Timestamp("2009-05-01"):
-            deposit_rate = main_rate - 0.75
-        elif date < pd.Timestamp("2012-07-01"):
-            deposit_rate = main_rate - 0.75
-        elif date < pd.Timestamp("2014-06-01"):
-            deposit_rate = 0.0
-        elif date < pd.Timestamp("2014-09-01"):
-            deposit_rate = -0.1
-        elif date < pd.Timestamp("2015-12-01"):
-            deposit_rate = -0.2
-        elif date < pd.Timestamp("2016-03-01"):
-            deposit_rate = -0.3
-        elif date < pd.Timestamp("2019-09-01"):
-            deposit_rate = -0.4
-        elif date < pd.Timestamp("2022-07-01"):
-            deposit_rate = -0.5
-        elif date < pd.Timestamp("2022-09-01"):
-            deposit_rate = 0.0
-        elif date < pd.Timestamp("2022-11-01"):
-            deposit_rate = 0.75
-        elif date < pd.Timestamp("2023-02-01"):
-            deposit_rate = 1.5
-        elif date < pd.Timestamp("2023-03-01"):
-            deposit_rate = 2.0
-        elif date < pd.Timestamp("2023-05-01"):
-            deposit_rate = 2.5
-        elif date < pd.Timestamp("2023-06-01"):
-            deposit_rate = 3.0
-        elif date < pd.Timestamp("2023-09-01"):
-            deposit_rate = 3.5
-        elif date < pd.Timestamp("2024-06-01"):
-            deposit_rate = 4.0
-        elif date < pd.Timestamp("2024-09-01"):
-            deposit_rate = 3.75
-        elif date < pd.Timestamp("2024-10-01"):
-            deposit_rate = 3.25
-        elif date < pd.Timestamp("2024-12-01"):
-            deposit_rate = 3.0
-        else:
-            deposit_rate = 2.75
-
-        main_rates.append(main_rate)
-        deposit_rates.append(deposit_rate)
-
-    df_main = pd.DataFrame(
-        {
-            "date": dates,
-            "rate_type": "main_refinancing",
-            "interest_rate": main_rates,
-        }
-    )
-    df_deposit = pd.DataFrame(
-        {
-            "date": dates,
-            "rate_type": "deposit_facility",
-            "interest_rate": deposit_rates,
-        }
-    )
-    return pd.concat([df_main, df_deposit], ignore_index=True)

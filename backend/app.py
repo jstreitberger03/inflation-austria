@@ -20,9 +20,12 @@ DATA_CACHE: Dict[str, DataResponse] = {}
 def _cache_key(override: Optional[DataRequest]) -> str:
     if override is None:
         return "default"
-    payload = {k: v for k, v in override.model_dump(exclude_none=True).items()}
-    if not payload:
-        return "default"
+    # Always include countries, analysis_start_date, and historical_start_date in the cache key
+    payload = {
+        "countries": getattr(override, "countries", None),
+        "analysis_start_date": getattr(override, "analysis_start_date", None),
+        "historical_start_date": getattr(override, "historical_start_date", None),
+    }
     return json.dumps(payload, sort_keys=True)
 
 

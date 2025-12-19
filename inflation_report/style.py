@@ -1,8 +1,8 @@
 """
-Style system for python-plot-template.
+Style system for the inflation_report package.
 
-apply_template() sets a clean blank theme with Paul Tol palettes and dotted
-y-major grid lines.
+Provides functions to apply a clean Matplotlib theme using Paul Tol colorblind-safe palettes,
+with dotted y-major grid lines and sensible defaults for publication-quality plots.
 """
 
 from __future__ import annotations

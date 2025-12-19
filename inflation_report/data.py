@@ -81,6 +81,7 @@ def _country_label(code: str) -> str:
             if c and hasattr(c, "name"):
                 return c.name
         except Exception:
+            # Ignore all exceptions from pycountry lookup; fallback to returning the code.
             pass
     return code
 

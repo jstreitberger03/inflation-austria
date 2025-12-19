@@ -33,7 +33,7 @@ async def lifespan(app: FastAPI):
     FastAPI recommends lifespan handlers over on_event.
     """
     try:
-        DATA_CACHE["data"] = compute_data()
+        DATA_CACHE[_cache_key(None)] = compute_data()
     except Exception as exc:  # pragma: no cover - best-effort warmup
         print(f"Cache warmup failed: {exc}")
     yield

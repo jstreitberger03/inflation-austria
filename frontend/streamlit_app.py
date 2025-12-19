@@ -31,6 +31,26 @@ def fetch_data(api_url: str, refresh: bool = False, payload: Dict[str, Any] | No
     return resp.json()
 
 
+def fetch_config(api_url: str) -> Dict[str, Any]:
+    resp = requests.get(f"{api_url}/config", timeout=30)
+    resp.raise_for_status()
+    return resp.json()
+
+
+def filter_by_countries(data: Dict[str, Any], countries: List[str]) -> Dict[str, Any]:
+    """
+    Filter inflation records by selected countries while leaving other payload parts unchanged.
+    """
+    if not countries:
+        return data
+    selected = set(countries)
+    filtered = dict(data)
+    filtered["inflation"] = [
+        row for row in data.get("inflation", []) if row.get("country") in selected
+    ]
+    return filtered
+
+
 # Sidebar controls
 st.sidebar.header("Controls")
 api_box = st.sidebar.expander("API Einstellungen", expanded=False)
@@ -54,18 +74,27 @@ try:
 except Exception:
     st.sidebar.warning("Backend not reachable")
 
-# Load data (cached per URL unless refresh)
+# Loaders (cached per URL unless refresh/selection forces reload)
 @st.cache_data(show_spinner=False)
-def load_cached(api: str, payload: Dict[str, Any] | None) -> Dict[str, Any]:
-    return fetch_data(api, refresh=False, payload=payload)
+def load_config_cached(api: str) -> Dict[str, Any]:
+    return fetch_config(api)
+
+
+@st.cache_data(show_spinner=False)
+def load_data_cached(api: str) -> Dict[str, Any]:
+    return fetch_data(api, refresh=False, payload=None)
+
+
+@st.cache_data(show_spinner=False)
+def load_custom_cached(api: str, payload: Dict[str, Any]) -> Dict[str, Any]:
+    return fetch_data(api, refresh=True, payload=payload)
 
 
 data: Dict[str, Any] | None = None
 payload = None
 try:
-    # Load config first to build multiselect
-    cfg_only = fetch_data(api_url, refresh=False)
-    cfg = cfg_only.get("config", {})
+    # Load config only (avoid pulling full dataset until needed)
+    cfg = load_config_cached(api_url)
     base_countries = [c.upper() for c in cfg.get("countries", []) if c]
 
     options = sorted(set(base_countries + EU_COUNTRY_CODES))
@@ -76,13 +105,21 @@ try:
     payload_countries = sorted(set(selected_countries)) if selected_countries else base_countries or options
     payload = {"countries": payload_countries}
 
+    selection_extends_base = bool(set(payload_countries) - set(base_countries))
+
     if refresh_btn:
+        # Clear caches so the next call always fetches fresh data
+        load_data_cached.clear()
+        load_custom_cached.clear()
+
+    if refresh_btn or selection_extends_base:
         with st.spinner("Lade Daten neu..."):
-            data = fetch_data(api_url, refresh=True, payload=payload)
-            load_cached.clear()
+            data = load_custom_cached(api_url, payload)
     else:
         with st.spinner("Lade Daten..."):
-            data = load_cached(api_url, payload)
+            data = load_data_cached(api_url)
+            if selected_countries:
+                data = filter_by_countries(data, payload_countries)
 except Exception as exc:
     st.error(f"Fehler beim Laden der Daten: {exc}")
 

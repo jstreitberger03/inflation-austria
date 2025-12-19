@@ -21,7 +21,6 @@ from .visualization import (
     plot_inflation_components,
     plot_statistics_comparison,
 )
-from .reporting.text import generate_text_report, print_summary
 
 __all__ = [
     "ReportConfig",
@@ -43,7 +42,5 @@ __all__ = [
     "plot_inflation_comparison",
     "plot_inflation_components",
     "plot_statistics_comparison",
-    "generate_text_report",
-    "print_summary",
     "COUNTRY_NAMES",
 ]

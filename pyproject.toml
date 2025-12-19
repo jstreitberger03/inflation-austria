@@ -13,7 +13,6 @@ readme = "README.md"
 requires-python = ">=3.8"
 classifiers = [
     "Programming Language :: Python :: 3",
-    "License :: OSI Approved :: MIT License",
     "Operating System :: OS Independent",
 ]
 dependencies = [
@@ -29,7 +28,15 @@ dependencies = [
     "streamlit>=1.34",
     "plotly>=5.20",
     "pycountry>=23.12",
+    "statsmodels>=0.14",
+    "scikit-learn>=1.0",
+    "matplotlib>=3.8",
+    "python-plot-template @ git+https://github.com/jstreitberger03/python-plot-template.git",
 ]
+
+[tool.setuptools.packages.find]
+include = ["inflation_report"]
+exclude = ["output", "output.*"]
 
 [project.urls]
 "Homepage" = "https://github.com/jstreitberger03/inflation-report-austria"

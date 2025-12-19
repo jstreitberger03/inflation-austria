@@ -1,51 +1,41 @@
-# Inflationsbericht Österreich
+# Inflationsbericht Österreich ![CI](https://github.com/jstreitberger03/inflation-report-austria/actions/workflows/ci.yml/badge.svg) ![License](https://img.shields.io/badge/license-MIT-blue.svg) ![Python](https://img.shields.io/badge/Python-3.11+-blue)
 
-![Build](https://github.com/jstreitberger03/inflation-report-austria/actions/workflows/ci.yml/badge.svg?branch=main)
-![License](https://img.shields.io/badge/license-MIT-blue.svg)
-![Python](https://img.shields.io/badge/Python-3.11+-blue)
-
-Ein Werkzeug zur Analyse und Visualisierung von Inflationsdaten für Österreich im Vergleich zu Deutschland und dem Euroraum.
+Ein Werkzeug zur Analyse und Visualisierung von Inflationsdaten für Österreich im Vergleich zu Deutschland und dem Euroraum. Es generiert reproduzierbare SVG-Grafiken und bietet optional ein FastAPI-Backend plus Streamlit-Dashboard.
 
 ## Übersicht
-
-Dieses Projekt bietet einen automatisierten Arbeitsablauf zum Abrufen, Analysieren und Visualisieren von Inflationsdaten von Eurostat. Der Fokus liegt auf der reproduzierbaren Erstellung hochwertiger SVG-Grafiken, die direkt in Präsentationen oder Berichten genutzt werden können.
+- Automatisierter Workflow für Eurostat-HICP-Daten, Zinsreihen (EZB, optional FED) und eigene Konfigurationen.
+- Fokus auf hochwertige SVG-Ausgaben, die direkt in Präsentationen/Berichten genutzt werden können.
+- Optionales API + Dashboard für interaktive Exploration (Länderwahl, Zeiträume, Komponenten, Zinsen).
 
 ## Funktionen
-
-### Datenanalyse
-- **Datenquelle**: Eurostat HICP (Harmonisierter Verbraucherpreisindex, `prc_hicp_manr`).
-- **Geografischer Geltungsbereich**: Österreich, Deutschland und der Euroraum (EA20).
-- **Frequenz**: Monatliche Jahresveränderungsraten der Inflation.
-- **Zeitraum**: Von 2002 bis zu den aktuellsten verfügbaren Daten.
-- **Datenaktualisierung**: Ruft bei jeder Ausführung die neuesten Daten direkt von der Eurostat-API ab.
+### Daten & Analyse
+- **Datenquelle**: Eurostat HICP (`prc_hicp_manr`), EZB-Leitzinsen (`irt_st_m`), optional FRED Fed Funds (`DFF`).
+- **Regionen**: Österreich, Deutschland, Eurozone (EA20); Komponenten (CP00, FOOD, NRG, IGD, SERV).
+- **Zeitraum**: ab 2002 (Inflation) bzw. 2000 (Zinsen); Konfiguration via `config.yaml`.
+- **Analyse**: Statistiken, Trendindikatoren, Differenz AT vs. Eurozone, Länder-Vergleiche.
 
 ### Prognose
-- **Primärmodell**: Holt-Winters Exponentielle Glättung mit gedämpftem Trend für Zeitreihenprognosen.
-- **Fallback-Modell**: Lineare Regression wird verwendet, wenn der Datensatz für das Holt-Winters-Modell nicht ausreicht.
-- **Trainingszeitraum**: Die letzten 24 Monate der Daten werden für das Modelltraining verwendet.
-- **Konfidenzintervalle**: 95%-Prädiktionsintervalle werden berechnet und an den Prognosehorizont angepasst.
+- Holt-Winters (gedämpfter Trend) als Primärmodell; Fallback: lineare Regression, falls Daten nicht ausreichen.
+- Trainingszeitraum: letzte 24 Monate; 95%-Prädiktionsintervalle.
 
-### Statistische Analyse
-- Deskriptive Statistiken (Mittelwert, Median, Standardabweichung).
-- Identifizierung von Trends und Extremwerten.
-- Vergleichende Analyse zwischen den ausgewählten Regionen.
-- Berechnung von Inflationsdifferenzen.
+### Visualisierungen (SVG)
+1. `inflation_comparison.svg`: Vergleich + Prognose.
+2. `ecb_interest_rates.svg`: EZB-Leitzinsen seit 2000.
+3. `inflation_difference.svg`: Inflationsdifferenz AT vs. Eurozone.
+4. `statistics_comparison.svg`: zentrale Kennzahlen.
+5. `historical_comparison.svg`: Langfristige Entwicklung mit Events.
+6. `eu_inflation_heatmap.svg`: Heatmap der Inflationsraten in der EU.
 
-### Visualisierungen
-Das Tool generiert die folgenden SVG-Diagramme:
-1.  `inflation_comparison.svg`: Vergleichende Darstellung der Inflationsraten mit Prognosen.
-2.  `ecb_interest_rates.svg`: EZB-Leitzinsen seit 2000.
-3.  `inflation_difference.svg`: Inflationsdifferenz zwischen Österreich und dem Euroraum.
-4.  `statistics_comparison.svg`: Vergleichende Visualisierung der wichtigsten statistischen Kennzahlen.
-5.  `historical_comparison.svg`: Langfristige Inflationsentwicklung seit 2002 mit Markierungen für wichtige wirtschaftliche Ereignisse.
-6.  `eu_inflation_heatmap.svg`: Eine Heatmap der Inflationsraten in der Europäischen Union.
+### API & Dashboard
+- Endpoints: `/health`, `/config`, `/data` (Cache), `/refresh` (Recompute mit Payload).
+- Streamlit-Dashboard: Länder- und Zeitraumwahl, Komponenten-Chart pro Land, KPI-Kacheln, Zinschart (EZB + FED), optional eigene API-URL.
 
 ### Output
-- Schlanke SVG-Grafiken ohne HTML/Text-Berichte
-- Separate Makefile-Targets zum Erzeugen (`make figures`) und Aufräumen (`make clean`) der Ausgaben
+- SVG-Dateien landen in `output/`.
+- Vorschaubilder in `docs/previews/` (manuell aktualisieren nach einem Lauf).
 
 ### Vorschau (Beispiele)
-> Hinweis: Vorschaubilder liegen in `docs/previews/` und sollten nach einem Lauf von `make figures` manuell kopiert/aktualisiert werden.
+> Hinweis: Vorschaubilder liegen in `docs/previews/` und sollten nach `make figures` bei Bedarf kopiert/aktualisiert werden.
 
 | Plot | Vorschau |
 | --- | --- |
@@ -57,91 +47,95 @@ Das Tool generiert die folgenden SVG-Diagramme:
 | EU Inflation Heatmap | ![EU Heatmap](docs/previews/eu_inflation_heatmap.svg) |
 
 ## Erste Schritte
-
 ### Voraussetzungen
-- Python 3.8 oder höher.
+- Python 3.8 oder höher (empfohlen: 3.11+).
 
 ### Installation
+1) Repository klonen:
+```bash
+git clone https://github.com/jstreitberger03/inflation-report-austria.git
+cd inflation-report-austria
+```
+2) Virtuelle Umgebung erstellen und aktivieren:
+- Windows:
+```bash
+python -m venv .venv
+.venv\Scripts\activate
+```
+- macOS/Linux:
+```bash
+python -m venv .venv
+source .venv/bin/activate
+```
+3) Abhängigkeiten installieren (inkl. `python-plot-template` aus Git):
+```bash
+pip install -r requirements.txt
+pip install -e .
+```
+Falls das Template-Repo lokal neben diesem Projekt liegt, können Sie es alternativ so einbinden:
+```bash
+pip install -e ../python-plot-template
+```
 
-1.  **Repository klonen**:
-    ```bash
-    git clone https://github.com/jstreitberger03/inflation-report-austria.git
-    cd inflation-report-austria
-    ```
-
-2.  **Virtuelle Umgebung erstellen und aktivieren** (empfohlen):
-    - Windows:
-      ```bash
-      python -m venv .venv
-      .venv\Scripts\activate
-      ```
-    - macOS/Linux:
-      ```bash
-      python -m venv .venv
-      source .venv/bin/activate
-      ```
-
-3.  **Abhängigkeiten installieren** (benötigt das Nachbar-Repository `python-plot-template`):
-    ```bash
-    pip install .
-    ```
-    Falls das Template-Repo nicht neben diesem Projekt liegt, passen Sie den Pfad in `pyproject.toml` an oder installieren Sie es direkt:
-    ```bash
-    pip install -e ../python-plot-template
-    ```
-
-### Verwendung
-
-Erzeugen Sie die Grafiken mit dem Makefile:
+## Grafiken erzeugen
+Erzeugen der SVGs:
 ```bash
 make figures
 ```
+Ausgabe: `output/*.svg` (im Git ignoriert).
 
-Die SVG-Dateien werden im Verzeichnis `output/` gespeichert. Zum Aufräumen:
+Aufräumen:
 ```bash
 make clean
 ```
 
-## Projektstruktur
+## Dashboard + API
+### Backend starten (FastAPI)
+```bash
+uvicorn backend.app:app --reload --port 8000
+```
+Endpoints:
+- `GET /health` – Health Check
+- `GET /config` – aktuelle Konfiguration
+- `GET /data` – vorberechnete Daten (Inflation, Vergleich, Zinsen)
+- `POST /refresh` – Daten neu berechnen (optional mit Länder-/Zeitraum-Payload)
 
+### Dashboard starten (Streamlit)
+```bash
+streamlit run frontend/streamlit_app.py
+```
+Im Sidebar können Sie Länder wählen, Zeitraum setzen und die API-URL anpassen (Standard: `http://127.0.0.1:8000`).
+
+## Projektstruktur
 ```
 inflation-report-austria/
-│
-├── Makefile              # Targets für figures/clean
-├── main.py               # Hauptskript zur Orchestrierung des Arbeitsablaufs
-├── config.yaml           # Konfigurationsdatei für Parameter
-├── inflation_report/     # Paket mit Datenabruf, Analyse und Visualisierung
-├── README.md             # Projektdokumentation
-│
-└── output/               # Generierte SVG-Grafiken (im Git ignoriert)
-    └── *.svg
+├── backend/                 # FastAPI Backend
+├── frontend/                # Streamlit Dashboard
+├── inflation_report/        # Daten, Analyse, Prognose, Visualisierung, Reporting
+├── docs/previews/           # Beispiel-SVGs
+├── output/                  # Generierte SVGs (ignored)
+├── Makefile                 # Targets für figures/clean
+├── main.py                  # Pipeline-Entrypoint
+├── config.yaml              # Konfiguration (optional)
+├── pyproject.toml           # Projektmetadaten
+├── requirements.txt         # Python-Abhängigkeiten
+└── README.md
 ```
 
-## Methodik
-
-### Datenquelle
-- **Anbieter**: Eurostat
-- **Datensatz**: `prc_hicp_manr` (HVPI - monatliche Daten, jährliche Veränderungsrate)
-- **Regionen**: Österreich (AT), Deutschland (DE), Euroraum (EA20)
-
-### Prognosemodell
-Das primäre Prognosemodell ist die **Holt-Winters Exponentielle Glättung** mit einem additiven, gedämpften Trend. Diese Methode eignet sich gut für nicht-saisonale Zeitreihen mit einem Trend. Wenn die Zeitreihe für dieses Modell zu kurz ist, wird als Fallback eine einfache **lineare Regression** über die letzten 12 Monate verwendet.
-
-- **Trainingsdaten**: Das Modell wird auf den Daten der letzten 24 Monate trainiert, um sich an aktuelle Trends anzupassen.
-- **Konfidenzintervalle**: 95%-Prädiktionsintervalle werden auf Basis der Standardabweichung der Modellresiduen berechnet, mit einer Anpassung für den Prognosehorizont.
+## Datenbasis
+- **Anbieter**: Eurostat; **Datensätze**: `prc_hicp_manr` (Inflation), `irt_st_m` (EZB-Leitzinsen), optional FRED `DFF`.
+- **Regionen**: Österreich (AT), Deutschland (DE), Eurozone (EA20) + Komponenten.
+- **Zeitraum**: ab 2002 (Inflation) bzw. 2000 (Zinsen).
 
 ## Technologie-Stack
 
-| Komponente         | Technologie   |
-|--------------------|---------------|
-| **Kern**           | Python 3.8+   |
-| **Datenverarbeitung**| pandas        |
-| **Statistik**      | statsmodels   |
-| **ML-Fallback**    | scikit-learn  |
-| **Visualisierung** | Matplotlib + python-plot-template |
-| **API-Client**     | eurostat      |
-| **Numerik**        | numpy         |
+| Komponente         | Technologie                                      |
+|--------------------|--------------------------------------------------|
+| Daten/Config       | pandas, numpy, eurostat, PyYAML, pycountry       |
+| Statistik/ML       | statsmodels, scikit-learn                        |
+| Visualisierung     | Matplotlib, python-plot-template, Plotly         |
+| API/Backend        | FastAPI, Pydantic, Uvicorn, Requests             |
+| Dashboard          | Streamlit, Plotly                                |
 
 ## Lizenz
-
-Dieses Projekt ist unter der MIT-Lizenz lizenziert. Weitere Informationen finden Sie in der `LICENSE`-Datei.
+Dieses Projekt ist unter der MIT-Lizenz lizenziert (siehe `LICENSE`).

@@ -4,10 +4,45 @@ from __future__ import annotations
 
 COICOP_CATEGORIES = ["CP00", "FOOD", "NRG", "IGD", "SERV"]
 
+EU_COUNTRY_CODES = [
+    "AT","BE","BG","HR","CY","CZ","DK","EE","FI","FR","DE","EL","GR","HU","IE","IT",
+    "LT","LU","LV","MT","NL","PL","PT","RO","SE","SI","SK","ES"
+]
+
 COUNTRY_NAMES = {
-    "AT": "Österreich",
-    "DE": "Deutschland",
+    # Euro area and common aggregates
+    "EA19": "Eurozone",
     "EA20": "Eurozone",
+    "EA": "Eurozone",
+    # EU members (German labels)
+    "AT": "Österreich",
+    "BE": "Belgien",
+    "BG": "Bulgarien",
+    "HR": "Kroatien",
+    "CY": "Zypern",
+    "CZ": "Tschechien",
+    "DK": "Dänemark",
+    "EE": "Estland",
+    "FI": "Finnland",
+    "FR": "Frankreich",
+    "DE": "Deutschland",
+    "EL": "Griechenland",
+    "GR": "Griechenland",
+    "HU": "Ungarn",
+    "IE": "Irland",
+    "IT": "Italien",
+    "LT": "Litauen",
+    "LU": "Luxemburg",
+    "LV": "Lettland",
+    "MT": "Malta",
+    "NL": "Niederlande",
+    "PL": "Polen",
+    "PT": "Portugal",
+    "RO": "Rumänien",
+    "SE": "Schweden",
+    "SI": "Slowenien",
+    "SK": "Slowakei",
+    "ES": "Spanien",
 }
 
 CATEGORY_NAMES = {

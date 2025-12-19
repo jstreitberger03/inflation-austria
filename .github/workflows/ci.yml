@@ -4,7 +4,6 @@ on:
   push:
     branches: [main, master]
   pull_request:
-    branches: [main, master]
 
 jobs:
   build:
@@ -17,12 +16,23 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: "3.11"
+          cache: "pip"
 
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          python -m pip install . pycountry
+          pip install -r requirements.txt
+          pip install -e .
+          pip install ruff pytest
 
       - name: Static compile check
         run: |
-          python -m compileall inflation_report
+          python -m compileall backend frontend inflation_report
+
+      - name: Lint
+        run: |
+          ruff check backend frontend inflation_report
+
+      - name: Tests
+        run: |
+          pytest -q

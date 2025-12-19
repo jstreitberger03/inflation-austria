@@ -1,99 +1,108 @@
-"""Forecasting utilities for inflation data."""
+"""Forecasting helpers for inflation rates."""
 
 from __future__ import annotations
 
-from typing import Literal
+from datetime import datetime
 
 import numpy as np
 import pandas as pd
 from sklearn.linear_model import LinearRegression
+from statsmodels.tsa.holtwinters import ExponentialSmoothing
 
 from .config import ReportConfig, ensure_config
 from .constants import COUNTRY_NAMES
 
 
-def forecast_inflation(
-    df: pd.DataFrame,
-    config: ReportConfig | dict,
-    method: Literal["holt_winters", "linear"] = "holt_winters",
-) -> pd.DataFrame:
-    """
-    Forecast inflation using time series models with confidence intervals.
+def _forecast_holt_winters(series: pd.Series, periods: int) -> tuple[np.ndarray, float]:
+    """Forecast with damped Holt-Winters; returns forecast and residual std."""
+    # Require at least two seasonal cycles to stabilize.
+    if len(series) < 24:
+        raise ValueError("Not enough data for Holt-Winters")
 
-    Primary method: Holt-Winters Exponential Smoothing (trend, damped).
-    Fallback: Linear regression on the most recent 12 months.
-    """
-    from statsmodels.tsa.holtwinters import ExponentialSmoothing
+    model = ExponentialSmoothing(
+        series,
+        trend="add",
+        damped_trend=True,
+        seasonal="add",
+        seasonal_periods=12,
+        initialization_method="estimated",
+    )
+    fitted = model.fit(optimized=True, use_brute=True)
+    forecast = fitted.forecast(periods)
+    resid_std = float(np.std(fitted.resid, ddof=1)) if hasattr(fitted, "resid") else float(np.std(series.diff().dropna(), ddof=1))
+    return forecast, resid_std
 
+
+def _forecast_linear_regression(series: pd.Series, periods: int) -> tuple[np.ndarray, float]:
+    """Simple linear regression fallback forecast."""
+    x = np.arange(len(series)).reshape(-1, 1)
+    model = LinearRegression()
+    model.fit(x, series.values)
+
+    future_x = np.arange(len(series), len(series) + periods).reshape(-1, 1)
+    forecast = model.predict(future_x)
+
+    resid_std = float(np.std(series.values - model.predict(x), ddof=1))
+    return forecast, resid_std
+
+
+def _prediction_interval(values: np.ndarray, resid_std: float, z: float = 1.96) -> tuple[np.ndarray, np.ndarray]:
+    """Return lower/upper prediction bounds using a normal approximation."""
+    delta = z * resid_std
+    lower = values - delta
+    upper = values + delta
+    return lower, upper
+
+
+def forecast_inflation(df: pd.DataFrame, config: ReportConfig | dict) -> pd.DataFrame:
+    """
+    Forecast inflation for each configured country using Holt-Winters with a linear fallback.
+
+    Returns a tidy DataFrame with columns: date, geo, country, inflation_rate, lower_bound, upper_bound.
+    """
     config = ensure_config(config)
-    forecasts: list[dict[str, object]] = []
-    months_ahead = config.forecast_months
+    df = df.copy()
+    df["date"] = pd.to_datetime(df["date"])
+    df = df[df["coicop"] == "CP00"]
+    if df.empty:
+        return pd.DataFrame(columns=["date", "geo", "country", "inflation_rate", "lower_bound", "upper_bound"])
+
+    forecast_horizon = int(config.forecast_months)
+    results: list[dict] = []
 
     for geo in df["geo"].unique():
-        region_data = df[(df["geo"] == geo) & (df["coicop"] == "CP00")].sort_values("date").copy()
-        if region_data.empty:
+        hist = df[df["geo"] == geo].sort_values("date")
+        if hist.empty:
             continue
 
-        country_name = region_data["country"].iloc[0] or COUNTRY_NAMES.get(geo, geo)
-        training_window = min(config.forecast_training_window, len(region_data))
-        training_data = region_data.tail(training_window).copy()
+        series = hist.set_index("date")["inflation_rate"].asfreq("MS")
+        # Drop leading NaNs that may arise from asfreq alignment
+        series = series.dropna()
+        if series.empty:
+            continue
 
         try:
-            if method == "holt_winters" and training_window >= 12:
-                model = ExponentialSmoothing(
-                    training_data["inflation_rate"].values,
-                    trend="add",
-                    seasonal=None,
-                    damped_trend=True,
-                )
-                fitted_model = model.fit(optimized=True, use_brute=False)
-                forecast_values = fitted_model.forecast(steps=months_ahead)
-                fitted_values = fitted_model.fittedvalues
-                residuals = training_data["inflation_rate"].values - fitted_values
-                std_error = np.std(residuals)
-                method_used = "Holt-Winters (Exponential Smoothing mit Trend)"
-            else:
-                raise ValueError("Using linear regression fallback")
+            forecast_values, resid_std = _forecast_holt_winters(series, forecast_horizon)
         except Exception:
-            recent_data = region_data.tail(12).copy()
-            min_date = recent_data["date"].min()
-            recent_data["months"] = (
-                (recent_data["date"].dt.year - min_date.year) * 12
-                + (recent_data["date"].dt.month - min_date.month)
-            )
+            forecast_values, resid_std = _forecast_linear_regression(series, forecast_horizon)
 
-            model = LinearRegression()
-            model.fit(recent_data["months"].values.reshape(-1, 1), recent_data["inflation_rate"].values)
-            forecast_values = model.predict(np.arange(12, 12 + months_ahead).reshape(-1, 1))
-            predictions = model.predict(recent_data["months"].values.reshape(-1, 1))
-            residuals = recent_data["inflation_rate"].values - predictions
-            std_error = np.std(residuals)
-            method_used = "Lineare Regression (12-Monats-Trend)"
+        last_date: datetime = series.index.max().to_pydatetime()
+        future_dates = [pd.Timestamp(last_date) + pd.DateOffset(months=i) for i in range(1, forecast_horizon + 1)]
+        lower, upper = _prediction_interval(forecast_values, resid_std)
 
-        last_date = region_data["date"].max()
-        next_month = (
-            pd.Timestamp(year=last_date.year + 1, month=1, day=1)
-            if last_date.month == 12
-            else pd.Timestamp(year=last_date.year, month=last_date.month + 1, day=1)
-        )
-        future_dates = pd.date_range(start=next_month, periods=months_ahead, freq="MS").tolist()
-
-        for idx, (date, value) in enumerate(zip(future_dates, forecast_values)):
-            horizon_factor = np.sqrt(1 + idx / 6)
-            uncertainty = std_error * 1.96 * horizon_factor
-            forecasts.append(
+        for date, value, lo, hi in zip(future_dates, forecast_values, lower, upper, strict=True):
+            results.append(
                 {
-                    "date": date,
+                    "date": pd.to_datetime(date),
                     "geo": geo,
-                    "country": country_name,
+                    "country": COUNTRY_NAMES.get(geo, geo),
                     "inflation_rate": float(value),
-                    "lower_bound": max(0, float(value - uncertainty)),
-                    "upper_bound": float(value + uncertainty),
-                    "is_forecast": True,
-                    "method": method_used,
-                    "std_error": float(std_error),
-                    "training_months": training_window,
+                    "lower_bound": float(lo),
+                    "upper_bound": float(hi),
                 }
             )
 
-    return pd.DataFrame(forecasts)
+    forecast_df = pd.DataFrame(results)
+    if hasattr(config, "forecast_display_limit"):
+        forecast_df = forecast_df[forecast_df["date"] <= pd.to_datetime(config.forecast_display_limit)]
+    return forecast_df.sort_values("date")
